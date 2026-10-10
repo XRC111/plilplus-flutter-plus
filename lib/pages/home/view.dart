@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/custom_height_widget.dart';
+import 'package:PiliPlus/common/widgets/glass/glass_surface.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/pages/common/common_page.dart';
@@ -10,6 +11,7 @@ import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:get/get.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -75,20 +77,52 @@ class _HomePageState extends CommonPageState<HomePage>
     } else {
       tabBar = const SizedBox(height: 6);
     }
-    return Column(
+    // The top bar + tab bar float above the feed on a Stack so the scrolling
+    // content passes *under* the glass and is actually refracted. A Column
+    // (the previous layout) put them side by side, leaving nothing behind the
+    // glass to bend.
+    final showTopBar =
+        !_mainController.useSideBar &&
+        MediaQuery.sizeOf(context).isPortrait;
+    final topOverlay = Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        if (!_mainController.useSideBar &&
-            MediaQuery.sizeOf(context).isPortrait)
-          customAppBar(),
+        if (showTopBar) customAppBar(),
         tabBar,
-        Expanded(
-          child: onBuild(
-            tabBarView(
-              controller: _homeController.tabController,
-              children: _homeController.tabs.map((e) => e.page).toList(),
+      ],
+    );
+    final content = onBuild(
+      tabBarView(
+        controller: _homeController.tabController,
+        children: _homeController.tabs.map((e) => e.page).toList(),
+      ),
+    );
+    if (showTopBar) {
+      return Stack(
+        children: [
+          // Inset the feed by the overlay height so the first item is not
+          // hidden under the glass, then let it scroll beneath.
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: Style.topBarHeight + (_homeController.tabs.length > 1 ? 46 : 6),
+              ),
+              child: content,
             ),
           ),
-        ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: topOverlay,
+          ),
+        ],
+      );
+    }
+    return Column(
+      children: [
+        tabBar,
+        Expanded(child: content),
       ],
     );
   }
@@ -104,6 +138,18 @@ class _HomePageState extends CommonPageState<HomePage>
         userAvatar(colorScheme: _colorScheme, mainController: _mainController),
       ],
     );
+    // The top bar floats over the scrolling feed, so give it the same liquid
+    // glass treatment as the navigation shell. Bottom corners only: it is
+    // flush with the top edge.
+    Widget glassify(Widget bar) => GlassSurface(
+      cornerRadius: 20,
+      shape: const LiquidGlassShape.roundedRectangle(
+        cornerRadius: 20,
+        borderWidth: 0,
+      ),
+      child: bar,
+    );
+
     if (_homeController.hideTopBar) {
       if (_mainController.barOffset case final barOffset?) {
         return Obx(
@@ -112,9 +158,11 @@ class _HomePageState extends CommonPageState<HomePage>
             return CustomHeightWidget(
               offset: Offset(0, -offset),
               height: Style.topBarHeight - offset,
-              child: Padding(
-                padding: padding,
-                child: child,
+              child: glassify(
+                Padding(
+                  padding: padding,
+                  child: child,
+                ),
               ),
             );
           },
@@ -131,16 +179,18 @@ class _HomePageState extends CommonPageState<HomePage>
               duration: const Duration(milliseconds: 500),
               height: showSearchBar ? Style.topBarHeight : 0,
               padding: padding,
-              child: child,
+              child: glassify(child),
             ),
           );
         });
       }
     }
-    return Container(
-      height: Style.topBarHeight,
-      padding: padding,
-      child: child,
+    return glassify(
+      Container(
+        height: Style.topBarHeight,
+        padding: padding,
+        child: child,
+      ),
     );
   }
 
