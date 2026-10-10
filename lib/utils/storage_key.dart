@@ -216,6 +216,9 @@ abstract final class SettingBoxKey {
       systemProxyPort = 'systemProxyPort';
 
   static const String themeMode = 'themeMode',
+      // Switches the whole UI between the Material look and the HyperOS
+      // (flutter_miuix) look. See `uiStyle`.
+      uiStyle = 'uiStyle',
       defaultTextScale = 'textScale',
       appFontWeightV2 = 'appFontWeightV2',
       dynamicColor = 'dynamicColor',

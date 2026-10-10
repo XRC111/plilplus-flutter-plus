@@ -76,7 +76,10 @@ dependencies:
   dio: ^5.9.1
   dio_http2_adapter: ^2.7.1
   dlna_dart: ^0.1.0
-  dynamic_color: ^2.1.0
+  # Pinned to 1.x for flutter_miuix, which requires dynamic_color ^1.9.0.
+  # PiliPlus only uses DynamicColorPlugin (wallpaper accent), which exists in
+  # both 1.x and 2.x, so this downgrade is behaviour-compatible.
+  dynamic_color: ^1.9.0
   easy_debounce: ^2.0.3
   encrypt: ^5.0.3
   extended_nested_scroll_view:
@@ -130,6 +133,7 @@ dependencies:
   material_new_shapes: ^1.0.0
   material_ui: ^1.0.0
   liquid_glass_easy: ^4.3.4
+  flutter_miuix: ^1.3.0
   media_kit: 1.1.11
   media_kit_libs_video: 1.0.5
   media_kit_video: 1.2.5

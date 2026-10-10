@@ -245,109 +245,26 @@ void _onBack() {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   static ColorScheme? _light, _dark;
 
-  static (ThemeData, ThemeData) getAllTheme() {
-    final dynamicColor = _light != null && _dark != null && Pref.dynamicColor;
+  /// Bumped by [rebuildTheme]; read in the app's build so the ThemeData is
+  /// recomputed. Kept on the widget (not the State) because [rebuildTheme] is
+  /// called from settings, outside the tree.
+  static final themeRevision = ValueNotifier<int>(0);
 
-    final ColorScheme lightScheme, darkScheme;
-    if (dynamicColor) {
-      lightScheme = _light!;
-      darkScheme = _dark!;
-    } else {
-      final customColor = Pref.customColor;
-      final brandColor =
-          colorThemeTypes.elementAtOrNull(customColor)?.color ??
-          Color(customColor);
-      final variant = Pref.schemeVariant;
-
-      lightScheme = brandColor.asColorSchemeSeed(variant, .light);
-      darkScheme = brandColor.asColorSchemeSeed(variant, .dark);
-    }
-
-    return (
-      ThemeUtils.lightTheme = ThemeUtils.getThemeData(
-        colorScheme: lightScheme,
-        isDynamic: dynamicColor,
-      ),
-      ThemeUtils.darkTheme = ThemeUtils.getThemeData(
-        isDark: true,
-        colorScheme: darkScheme,
-        isDynamic: dynamicColor,
-      ),
-    );
+  /// Rebuilds the app so a theme-affecting setting (e.g. the UI style switch)
+  /// takes effect without restarting.
+  static void rebuildTheme() {
+    themeRevision.value++;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final (light, dark) = getAllTheme();
-    return GetMaterialApp(
-      title: Constants.appName,
-      theme: light,
-      darkTheme: dark,
-      themeMode: ThemeUtils.themeMode = Pref.themeMode,
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      locale: const Locale("zh", "CN"),
-      fallbackLocale: const Locale("zh", "CN"),
-      supportedLocales: const [Locale("zh", "CN"), Locale("en", "US")],
-      initialRoute: '/',
-      getPages: Routes.getPages,
-      defaultTransition: Pref.pageTransition,
-      builder: FlutterSmartDialog.init(
-        toastBuilder: CustomToast.new,
-        loadingBuilder: LoadingWidget.new,
-        notifyStyle: const FlutterSmartNotifyStyle(
-          warningBuilder: NotifyWarning.new,
-        ),
-        builder: _builder,
-      ),
-      navigatorObservers: [
-        routeObserver,
-        FlutterSmartDialog.observer,
-      ],
-      scrollBehavior: PlatformUtils.isDesktop
-          ? const CustomScrollBehavior()
-          : null,
-    );
-  }
-
-  static Widget _builder(BuildContext context, Widget? child) {
-    final uiScale = Pref.uiScale;
-    final mediaQuery = MediaQuery.of(context);
-    final textScaler = TextScaler.linear(Pref.defaultTextScale);
-    if (uiScale != 1.0) {
-      child = MediaQuery(
-        data: mediaQuery.copyWith(
-          textScaler: textScaler,
-          size: mediaQuery.size / uiScale,
-          padding: tmpPadding ?? mediaQuery.padding / uiScale,
-          viewInsets: mediaQuery.viewInsets / uiScale,
-          viewPadding: tmpPadding ?? mediaQuery.viewPadding / uiScale,
-          devicePixelRatio: mediaQuery.devicePixelRatio * uiScale,
-        ),
-        child: child!,
-      );
-    } else {
-      child = MediaQuery(
-        data: mediaQuery.copyWith(
-          textScaler: textScaler,
-          padding: tmpPadding,
-          viewPadding: tmpPadding,
-        ),
-        child: child!,
-      );
-    }
-    if (PlatformUtils.isDesktop) {
-      return BackDetector(
-        onBack: _onBack,
-        child: child,
-      );
-    }
-    return child;
-  }
+  /// Public entry point kept for callers outside the tree
+  /// (`lib/utils/extension/get_ext.dart`). Delegates to the state's
+  /// implementation, which owns the colour-scheme caching.
+  static (ThemeData, ThemeData) getAllTheme() => _MyAppState.getAllTheme();
 
   /// from [DynamicColorBuilderState.initPlatformState]
   static Future<bool> initPlatformState() async {
@@ -395,6 +312,118 @@ class MyApp extends StatelessWidget {
     }
     GStorage.setting.put(SettingBoxKey.dynamicColor, false);
     return false;
+  }
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  static (ThemeData, ThemeData) getAllTheme() {
+    final dynamicColor =
+        MyApp._light != null && MyApp._dark != null && Pref.dynamicColor;
+
+    final ColorScheme lightScheme, darkScheme;
+    if (dynamicColor) {
+      lightScheme = MyApp._light!;
+      darkScheme = MyApp._dark!;
+    } else {
+      final customColor = Pref.customColor;
+      final brandColor =
+          colorThemeTypes.elementAtOrNull(customColor)?.color ??
+          Color(customColor);
+      final variant = Pref.schemeVariant;
+
+      lightScheme = brandColor.asColorSchemeSeed(variant, .light);
+      darkScheme = brandColor.asColorSchemeSeed(variant, .dark);
+    }
+
+    return (
+      ThemeUtils.lightTheme = ThemeUtils.getThemeData(
+        colorScheme: lightScheme,
+        isDynamic: dynamicColor,
+      ),
+      ThemeUtils.darkTheme = ThemeUtils.getThemeData(
+        isDark: true,
+        colorScheme: darkScheme,
+        isDynamic: dynamicColor,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Rebuilds when rebuildTheme() is called, so switching the UI style in
+    // settings applies immediately instead of needing an app restart.
+    return ValueListenableBuilder<int>(
+      valueListenable: MyApp.themeRevision,
+      builder: (context, _, _) {
+        final (light, dark) = getAllTheme();
+        return GetMaterialApp(
+          title: Constants.appName,
+          theme: light,
+          darkTheme: dark,
+          themeMode: ThemeUtils.themeMode = Pref.themeMode,
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          locale: const Locale("zh", "CN"),
+          fallbackLocale: const Locale("zh", "CN"),
+          supportedLocales: const [Locale("zh", "CN"), Locale("en", "US")],
+          initialRoute: '/',
+          getPages: Routes.getPages,
+          defaultTransition: Pref.pageTransition,
+          builder: FlutterSmartDialog.init(
+            toastBuilder: CustomToast.new,
+            loadingBuilder: LoadingWidget.new,
+            notifyStyle: const FlutterSmartNotifyStyle(
+              warningBuilder: NotifyWarning.new,
+            ),
+            builder: _builder,
+          ),
+          navigatorObservers: [
+            routeObserver,
+            FlutterSmartDialog.observer,
+          ],
+          scrollBehavior: PlatformUtils.isDesktop
+              ? const CustomScrollBehavior()
+              : null,
+        );
+      },
+    );
+  }
+
+  static Widget _builder(BuildContext context, Widget? child) {
+    final uiScale = Pref.uiScale;
+    final mediaQuery = MediaQuery.of(context);
+    final textScaler = TextScaler.linear(Pref.defaultTextScale);
+    if (uiScale != 1.0) {
+      child = MediaQuery(
+        data: mediaQuery.copyWith(
+          textScaler: textScaler,
+          size: mediaQuery.size / uiScale,
+          padding: tmpPadding ?? mediaQuery.padding / uiScale,
+          viewInsets: mediaQuery.viewInsets / uiScale,
+          viewPadding: tmpPadding ?? mediaQuery.viewPadding / uiScale,
+          devicePixelRatio: mediaQuery.devicePixelRatio * uiScale,
+        ),
+        child: child!,
+      );
+    } else {
+      child = MediaQuery(
+        data: mediaQuery.copyWith(
+          textScaler: textScaler,
+          padding: tmpPadding,
+          viewPadding: tmpPadding,
+        ),
+        child: child!,
+      );
+    }
+    if (PlatformUtils.isDesktop) {
+      return BackDetector(
+        onBack: _onBack,
+        child: child,
+      );
+    }
+    return child;
   }
 }
 

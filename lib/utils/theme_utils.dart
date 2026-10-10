@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/font_utils.dart';
+import 'package:PiliPlus/utils/hyperos_theme.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoThemeData;
 import 'package:flutter/foundation.dart' show PlatformDispatcher;
@@ -166,9 +167,16 @@ abstract final class ThemeUtils {
       ),
     );
     if (isDark && Pref.isPureBlackTheme) {
-      return darkenTheme(theme);
+      final darkened = darkenTheme(theme);
+      return Pref.useHyperOsUi
+          ? HyperOsTheme.apply(darkened, isDark: true)
+          : darkened;
     }
-    return theme;
+    // HyperOS style: same colour scheme, different geometry / control styling.
+    // Applied last so it wins over the Material defaults above.
+    return Pref.useHyperOsUi
+        ? HyperOsTheme.apply(theme, isDark: isDark)
+        : theme;
   }
 
   static ThemeData darkenTheme(ThemeData theme) {

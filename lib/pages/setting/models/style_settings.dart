@@ -9,6 +9,7 @@ import 'package:PiliPlus/common/widgets/scale_app.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
     show kSpringDescription;
 import 'package:PiliPlus/common/widgets/stateful_builder.dart';
+import 'package:PiliPlus/main.dart' show MyApp;
 import 'package:PiliPlus/models/common/bar_hide_type.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
@@ -17,6 +18,7 @@ import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
+import 'package:PiliPlus/models/common/theme/ui_style.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
@@ -45,6 +47,23 @@ import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
 import 'package:path/path.dart' as path;
 
 List<SettingsModel> get styleSettings => [
+  PopupModel<UiStyle>(
+    title: '界面风格',
+    leading: const Icon(Icons.palette_outlined),
+    value: () => Pref.uiStyle,
+    items: UiStyle.values,
+    onSelected: (style, setState) {
+      if (style == Pref.uiStyle) return;
+      GStorage.setting
+          .put(SettingBoxKey.uiStyle, style.index)
+          .whenComplete(() {
+            setState();
+            // Recompute the ThemeData in place — no restart needed.
+            MyApp.rebuildTheme();
+            SmartDialog.showToast('已切换到「${style.label}」');
+          });
+    },
+  ),
   if (PlatformUtils.isDesktop) ...[
     const SwitchModel(
       title: '显示窗口标题栏',

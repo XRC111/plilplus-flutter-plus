@@ -18,6 +18,7 @@ import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliPlus/models/common/super_chat_type.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
+import 'package:PiliPlus/models/common/theme/ui_style.dart';
 import 'package:PiliPlus/models/common/video/audio_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/live_quality.dart';
@@ -150,6 +151,16 @@ abstract final class Pref {
 
   static bool get feedBackEnable =>
       _setting.get(SettingBoxKey.feedBackEnable, defaultValue: false);
+
+  /// Which design language the UI renders in (Material vs HyperOS).
+  ///
+  /// Read through this getter rather than the box directly so a missing or
+  /// out-of-range value always falls back to the upstream Material style.
+  static UiStyle get uiStyle =>
+      UiStyle.fromIndex(_setting.get(SettingBoxKey.uiStyle));
+
+  /// Convenience flag for the many call sites that only branch on the style.
+  static bool get useHyperOsUi => uiStyle.isHyperOs;
 
   static int get picQuality =>
       _setting.get(SettingBoxKey.defaultPicQa, defaultValue: 10);
