@@ -19,7 +19,7 @@ class GlassSurface extends StatelessWidget {
     super.key,
     required this.child,
     this.cornerRadius = 28.0,
-    this.blurSigma = 3.0,
+    this.blurSigma = 8.0,
     this.tint,
     this.shape,
     this.refraction,
@@ -33,7 +33,7 @@ class GlassSurface extends StatelessWidget {
   /// Corner radius of the capsule / rounded surface, in logical pixels.
   final double cornerRadius;
 
-  /// Frost/refraction blur strength (sigma for both axes).
+  /// Frost strength in logical pixels. Higher values read as thicker glass.
   final double blurSigma;
 
   /// Optional tint over the glass. Defaults to a light/white or dark
@@ -71,7 +71,13 @@ class GlassSurface extends StatelessWidget {
         blur: LiquidGlassBlur(sigmaX: blurSigma, sigmaY: blurSigma),
         color: tint ?? _defaultTint(context),
       ),
-      refraction: refraction ?? const LiquidGlassRefraction(distortion: 0.04),
+      // Match the package defaults (distortion 0.1 / width 30); the earlier
+      // 0.04 was too weak to read as glass.
+      refraction: refraction ??
+          const LiquidGlassRefraction(
+            distortion: 0.1,
+            distortionWidth: 30,
+          ),
     );
 
     return LiquidGlassLens(
