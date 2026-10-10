@@ -10,9 +10,9 @@
 
 中文 | [English](README.en.md)
 
-![GitHub repo size](https://img.shields.io/github/repo-size/bggRGjQaUbCoE/PiliPlus) 
-![GitHub Repo stars](https://img.shields.io/github/stars/bggRGjQaUbCoE/PiliPlus) 
-![GitHub all releases](https://img.shields.io/github/downloads/bggRGjQaUbCoE/PiliPlus/total) 
+![GitHub repo size](https://img.shields.io/github/repo-size/XRC111/plilplus-flutter-plus) 
+![GitHub Repo stars](https://img.shields.io/github/stars/XRC111/plilplus-flutter-plus) 
+![Build Android APK](https://github.com/XRC111/plilplus-flutter-plus/actions/workflows/build_android.yml/badge.svg)
 </div>
     <p>使用Flutter开发的BiliBili第三方客户端</p>
     
@@ -27,7 +27,59 @@
 
 <br/>
 
+> [!NOTE]
+> **这是 [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus) 的液态玻璃（Liquid Glass）改造分支。**
+>
+> 基于上游 `2.1.6` 版本，在其之上套用了 iOS 26 风格的液态玻璃导航外壳。除下述改动外，其余功能与上游一致。
+>
+> 上游原仓库：https://github.com/bggRGjQaUbCoE/PiliPlus
+
+## 液态玻璃改造
+
+使用 [`liquid_glass_easy`](https://pub.dev/packages/liquid_glass_easy) 为导航外壳套上基于着色器的液态玻璃：
+
+| 部分 | 说明 |
+| --- | --- |
+| 悬浮底栏 | 玻璃胶囊，**实时折射**背后滚动的内容（需开启「悬浮底栏」设置） |
+| 常规底栏 | `MYBar` 与经典 `BottomNavigationBar` 两种模式均已套用玻璃 |
+| 侧边栏 | 平板模式下的 `NavigationDrawer` 已套用玻璃 |
+| 对话框 | 确认框、追番状态选择框改为磨砂玻璃面板 |
+
+**渲染表现**：在 Impeller 渲染器（Android / iOS 默认）上，玻璃会实时折射其背后的内容；在 Skia / Web 上自动降级为磨砂玻璃（模糊 + 着色 + 边缘高光），不会报错。
+
+> [!TIP]
+> 玻璃效果**只在「悬浮底栏」模式下才有折射**（因为只有它悬浮在内容之上，背后有内容可折射）。常规底栏是不透明表面，视觉上是磨砂玻璃。
+
+### 改动文件
+
+```
+pubspec.yaml                                    # 新增 liquid_glass_easy 依赖
+lib/common/widgets/glass/glass_surface.dart     # 可复用的玻璃组件 GlassSurface
+lib/common/widgets/floating_navigation_bar.dart # 悬浮底栏玻璃化
+lib/common/widgets/dialog/dialog.dart           # 对话框玻璃化
+lib/pages/main/view.dart                        # 常规底栏 / 侧边栏玻璃化
+.github/workflows/build_android.yml             # Android APK 构建流程
+```
+
+## 构建
+
+本项目**依赖打过补丁的 Flutter SDK**（上游通过 `lib/scripts/patch.ps1` 暴露了若干框架私有 API），直接构建会报错，必须先应用补丁。
+
+```bash
+# 1. 安装与 pubspec.yaml 中一致的 Flutter 版本（3.47.6）
+fvm install          # 或手动安装对应版本
+
+# 2. 应用 SDK 补丁（必须，且需重跑 flutter pub get）
+pwsh lib/scripts/patch.ps1 android
+
+# 3. 构建
+flutter build apk --release --split-per-abi
+```
+
+GitHub Actions 已配置好完整流程（见 [build_android.yml](.github/workflows/build_android.yml)），推送代码后会自动构建并上传 APK 产物。
+
 ## 适配平台
+
 
 - [x] Android
 - [x] iOS
@@ -215,7 +267,7 @@
 
 ## 下载
 
-可以从 [Releases](https://github.com/bggRGjQaUbCoE/PiliPlus/releases) 下载，或克隆仓库拉取代码后在本地编译。
+可以从 [Actions](https://github.com/XRC111/plilplus-flutter-plus/actions/workflows/build_android.yml) 下载自动构建的 APK，或克隆仓库拉取代码后在本地编译。
 
 <br/>
 
@@ -246,10 +298,10 @@
 
 ## Star History
 
-<a href="https://star-history.dera.page/#bggRGjQaUbCoE/PiliPlus&Date">
+<a href="https://star-history.dera.page/#XRC111/plilplus-flutter-plus&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=bggRGjQaUbCoE/PiliPlus&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=bggRGjQaUbCoE/PiliPlus&type=Date" />
-   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=bggRGjQaUbCoE/PiliPlus&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=XRC111/plilplus-flutter-plus&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=XRC111/plilplus-flutter-plus&type=Date" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=XRC111/plilplus-flutter-plus&type=Date" />
  </picture>
 </a>
