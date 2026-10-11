@@ -1,0 +1,135 @@
+# 一键自动发布：点 "Run workflow" 即构建所选平台并发布 GitHub Release。
+# tag 留空时自动从 pubspec.yaml 的版本生成 v<x.y.z>-glass（如 v2.1.6-glass）。
+# 各平台在独立 job 中并行构建，产物挂到同一个 Release 上。
+name: Auto Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag（留空 = 自动生成 v<版本>-glass）"
+        required: false
+        default: ""
+        type: string
+      prerelease:
+        description: "标记为预发布"
+        required: false
+        default: false
+        type: boolean
+      android:
+        description: "构建 Android APK"
+        required: false
+        default: true
+        type: boolean
+      ios:
+        description: "构建 iOS IPA（无签名，AltSign 用）"
+        required: false
+        default: false
+        type: boolean
+      macos:
+        description: "构建 macOS"
+        required: false
+        default: false
+        type: boolean
+      windows:
+        description: "构建 Windows"
+        required: false
+        default: false
+        type: boolean
+      linux:
+        description: "构建 Linux"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: 解析 tag 并创建 Release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: resolve
+        run: |
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            VER=$(grep -oP '^version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' pubspec.yaml)
+            TAG="v${VER}-glass"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "resolved tag = $TAG"
+
+      # 先创建 Release，平台 job 随后只做资产上传，避免并发创建冲突。
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.resolve.outputs.tag }}
+          name: ${{ steps.resolve.outputs.tag }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+          body: |
+            PiliPlus with the iOS 26-style liquid glass navigation shell.
+
+            Based on upstream PiliPlus, plus:
+            - liquid glass navigation shell (floating bar refracts the feed)
+            - optional HyperOS (flutter_miuix) UI style, switchable in settings
+
+            APKs are split per ABI and signed with the debug key, so they are
+            installable but not suitable for store distribution.
+
+  android:
+    name: Android
+    needs: prepare
+    if: ${{ inputs.android }}
+    uses: ./.github/workflows/build_android.yml
+    permissions:
+      contents: write
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+
+  ios:
+    name: iOS
+    needs: prepare
+    if: ${{ inputs.ios }}
+    uses: ./.github/workflows/ios.yml
+    permissions:
+      contents: write
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+
+  macos:
+    name: macOS
+    needs: prepare
+    if: ${{ inputs.macos }}
+    uses: ./.github/workflows/mac.yml
+    permissions:
+      contents: write
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+
+  windows:
+    name: Windows
+    needs: prepare
+    if: ${{ inputs.windows }}
+    uses: ./.github/workflows/win_x64.yml
+    permissions:
+      contents: write
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+
+  linux:
+    name: Linux
+    needs: prepare
+    if: ${{ inputs.linux }}
+    uses: ./.github/workflows/linux_x64.yml
+    permissions:
+      contents: write
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
