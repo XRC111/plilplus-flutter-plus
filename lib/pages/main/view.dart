@@ -8,6 +8,8 @@ import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/glass/glass_surface.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/main_layout.dart';
+import 'package:PiliPlus/common/widgets/miuix/miuix_icons_map.dart';
+import 'package:PiliPlus/common/widgets/miuix/miuix_nav_bar.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/pages/home/view.dart';
@@ -23,6 +25,7 @@ import 'package:PiliPlus/utils/mobile_observer.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
@@ -316,78 +319,105 @@ class _MainAppState extends PopScopeState<MainApp>
   Widget? get _bottomNav {
     Widget? bottomNav;
     if (_mainController.navigationBars.length > 1) {
+      // HyperOS style renders the shell with flutter_miuix widgets instead of
+      // the Material ones. Everything else (index, hide-on-scroll) is shared.
+      final hyperOs = Pref.useHyperOsUi;
       if (_mainController.floatingNavBar) {
         bottomNav = Obx(
-          () => FloatingNavigationBar(
-            onDestinationSelected: _mainController.setIndex,
-            selectedIndex: _mainController.selectedIndex.value,
-            destinations: _mainController.navigationBars
-                .map(
-                  (e) => FloatingNavigationDestination(
-                    label: e.label,
-                    icon: _buildIcon(type: e),
-                    selectedIcon: _buildIcon(type: e, selected: true),
-                  ),
+          () => hyperOs
+              ? MiuixNavBar.buildFloating(
+                  items: _mainController.navigationBars,
+                  selectedIndex: _mainController.selectedIndex.value,
+                  onSelected: _mainController.setIndex,
+                  iconBuilder: (type, {selected = false}) =>
+                      MiuixIconsMap.forNavBar(type, selected: selected),
                 )
-                .toList(),
-          ),
+              : FloatingNavigationBar(
+                  onDestinationSelected: _mainController.setIndex,
+                  selectedIndex: _mainController.selectedIndex.value,
+                  destinations: _mainController.navigationBars
+                      .map(
+                        (e) => FloatingNavigationDestination(
+                          label: e.label,
+                          icon: _buildIcon(type: e),
+                          selectedIcon: _buildIcon(type: e, selected: true),
+                        ),
+                      )
+                      .toList(),
+                ),
         );
       } else if (_mainController.enableMYBar) {
         bottomNav = Obx(
-          () => GlassSurface(
-            cornerRadius: 0,
-            shape: const LiquidGlassShape.roundedRectangle(
-              cornerRadius: 0,
-              borderWidth: 0,
-            ),
-            child: NavigationBar(
-              maintainBottomViewPadding: true,
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              shadowColor: Colors.transparent,
-              elevation: 0,
-              onDestinationSelected: _mainController.setIndex,
-              selectedIndex: _mainController.selectedIndex.value,
-              destinations: _mainController.navigationBars
-                  .map(
-                    (e) => NavigationDestination(
-                      label: e.label,
-                      icon: _buildIcon(type: e),
-                      selectedIcon: _buildIcon(type: e, selected: true),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
+          () => hyperOs
+              ? MiuixNavBar.build(
+                  items: _mainController.navigationBars,
+                  selectedIndex: _mainController.selectedIndex.value,
+                  onSelected: _mainController.setIndex,
+                  iconBuilder: (type, {selected = false}) =>
+                      MiuixIconsMap.forNavBar(type, selected: selected),
+                )
+              : GlassSurface(
+                  cornerRadius: 0,
+                  shape: const LiquidGlassShape.roundedRectangle(
+                    cornerRadius: 0,
+                    borderWidth: 0,
+                  ),
+                  child: NavigationBar(
+                    maintainBottomViewPadding: true,
+                    backgroundColor: Colors.transparent,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    elevation: 0,
+                    onDestinationSelected: _mainController.setIndex,
+                    selectedIndex: _mainController.selectedIndex.value,
+                    destinations: _mainController.navigationBars
+                        .map(
+                          (e) => NavigationDestination(
+                            label: e.label,
+                            icon: _buildIcon(type: e),
+                            selectedIcon: _buildIcon(type: e, selected: true),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
         );
       } else {
         bottomNav = Obx(
-          () => GlassSurface(
-            cornerRadius: 0,
-            shape: const LiquidGlassShape.roundedRectangle(
-              cornerRadius: 0,
-              borderWidth: 0,
-            ),
-            child: BottomNavigationBar(
-              currentIndex: _mainController.selectedIndex.value,
-              onTap: _mainController.setIndex,
-              iconSize: 16,
-              selectedFontSize: 12,
-              unselectedFontSize: 12,
-              type: .fixed,
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              items: _mainController.navigationBars
-                  .map(
-                    (e) => BottomNavigationBarItem(
-                      label: e.label,
-                      icon: _buildIcon(type: e),
-                      activeIcon: _buildIcon(type: e, selected: true),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
+          () => hyperOs
+              ? MiuixNavBar.build(
+                  items: _mainController.navigationBars,
+                  selectedIndex: _mainController.selectedIndex.value,
+                  onSelected: _mainController.setIndex,
+                  iconBuilder: (type, {selected = false}) =>
+                      MiuixIconsMap.forNavBar(type, selected: selected),
+                )
+              : GlassSurface(
+                  cornerRadius: 0,
+                  shape: const LiquidGlassShape.roundedRectangle(
+                    cornerRadius: 0,
+                    borderWidth: 0,
+                  ),
+                  child: BottomNavigationBar(
+                    currentIndex: _mainController.selectedIndex.value,
+                    onTap: _mainController.setIndex,
+                    iconSize: 16,
+                    selectedFontSize: 12,
+                    unselectedFontSize: 12,
+                    type: .fixed,
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    items: _mainController.navigationBars
+                        .map(
+                          (e) => BottomNavigationBarItem(
+                            label: e.label,
+                            icon: _buildIcon(type: e),
+                            activeIcon: _buildIcon(type: e, selected: true),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
         );
       }
 

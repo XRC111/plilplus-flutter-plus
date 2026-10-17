@@ -9,12 +9,6 @@ on:
         default: ""
         type: string
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Release tag（留空则只构建不发布）"
-        required: false
-        default: ""
-        type: string
 
 jobs:
   build-linux-app:
@@ -220,11 +214,11 @@ jobs:
         shell: bash
 
       - name: Release
-        if: ${{ inputs.tag != '' }}
+        if: ${{ github.event.inputs.tag != '' }}
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ inputs.tag }}
-          name: ${{ inputs.tag }}
+          tag_name: ${{ github.event.inputs.tag }}
+          name: ${{ github.event.inputs.tag }}
           files: |
             PiliPlus_linux_*.tar.gz
             PiliPlus_linux_*.deb

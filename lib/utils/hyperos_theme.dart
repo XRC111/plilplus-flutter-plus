@@ -1,4 +1,5 @@
 import 'package:PiliPlus/utils/font_utils.dart';
+import 'package:flutter_miuix/miuix.dart' show MiuixSquircleBorder;
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -35,23 +36,23 @@ abstract final class HyperOsTheme {
         color: cardColor,
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: const RoundedRectangleBorder(borderRadius: _kRadius16),
+        shape: const MiuixSquircleBorder(cornerRadius: 16),
       ),
       dialogTheme: base.dialogTheme.copyWith(
         backgroundColor: surface,
         elevation: 0,
-        shape: const RoundedRectangleBorder(borderRadius: _kRadius28),
+        shape: const MiuixSquircleBorder(cornerRadius: 28),
       ),
       bottomSheetTheme: base.bottomSheetTheme.copyWith(
         backgroundColor: surface,
         elevation: 0,
         modalElevation: 0,
-        shape: const RoundedRectangleBorder(borderRadius: _kRadiusTop28),
+        shape: const MiuixSquircleBorder(cornerRadius: 28),
       ),
       popupMenuTheme: base.popupMenuTheme.copyWith(
         color: surface,
         elevation: 0,
-        shape: const RoundedRectangleBorder(borderRadius: _kRadius16),
+        shape: const MiuixSquircleBorder(cornerRadius: 16),
       ),
       appBarTheme: base.appBarTheme.copyWith(
         backgroundColor: Colors.transparent,
@@ -138,7 +139,4 @@ abstract final class HyperOsTheme {
   }
 
   static const _kRadius12All = BorderRadius.all(Radius.circular(12));
-  static const _kRadius16 = BorderRadius.all(Radius.circular(16));
-  static const _kRadius28 = BorderRadius.all(Radius.circular(28));
-  static const _kRadiusTop28 = BorderRadius.vertical(top: Radius.circular(28));
 }
