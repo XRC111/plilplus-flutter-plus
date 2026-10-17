@@ -1,9 +1,10 @@
 name: Build Android APK
 
 on:
+  # Tag pushes are handled by release.yml (which calls this workflow), so this
+  # one only runs on branches / PRs / manual dispatch.
   push:
     branches: [main, master, dev]
-    tags: ["v*"]
   pull_request:
     branches: [main, master]
   workflow_dispatch:
@@ -13,8 +14,15 @@ on:
         required: false
         default: ""
         type: string
+  # Lets release.yml reuse this workflow as a reusable one.
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to publish the APKs under. Empty = build only."
+        required: false
+        default: ""
+        type: string
 
-# Needed to create a Release from a tag (GITHUB_TOKEN is scoped per-repo).
 permissions:
   contents: write
 
@@ -84,17 +92,14 @@ jobs:
             build/app/outputs/flutter-apk/*-release.apk
             build/app/outputs/flutter-apk/app-debug.apk
 
-      # ── Automated release ──────────────────────────────────────
-      # Runs on a `v*` tag push, or on a manual run that supplies a tag.
+      # ── Attach APKs to a Release ───────────────────────────────
+      # The Release itself is created by release.yml (which calls this
+      # workflow with a tag); on a manual run that supplies a tag we create
+      # it here if it does not exist yet.
       - name: Resolve release tag
         id: release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
-        run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
-          fi
+        if: inputs.tag != ''
+        run: echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
 
       - name: Rename APKs for release
         if: steps.release.outputs.tag != ''
@@ -107,7 +112,7 @@ jobs:
           done
           ls -lh release-assets/
 
-      - name: Create GitHub Release
+      - name: Upload APKs to the Release
         if: steps.release.outputs.tag != ''
         uses: softprops/action-gh-release@v2
         with:
