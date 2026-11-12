@@ -120,6 +120,46 @@ jobs:
           echo "--- 生成的 ohos 工程 ---"
           ls -la ohos 2>/dev/null | head -20 || echo "::warning::未生成 ohos 目录"
 
+      - name: 修正鸿蒙工程配置（对齐 SDK 版本字符串）
+        working-directory: ${{ runner.temp }}/harmony_app
+        run: |
+          set -uo pipefail
+          TOOLROOT=$(dirname "$DEVECO_SDK_HOME")
+
+          # 从 SDK 的 version.txt 里读出实际版本与 API level
+          HOSVER=$(grep -oE 'HarmonyOS [0-9]+\.[0-9]+\.[0-9]+' "$TOOLROOT/version.txt" | head -1 | awk '{print $2}')
+          API=$(grep -oE 'apiVersion[[:space:]]*:[[:space:]]*[0-9]+' "$TOOLROOT/version.txt" | head -1 | grep -oE '[0-9]+$')
+          if [ -z "${HOSVER:-}" ] || [ -z "${API:-}" ]; then
+            echo "::warning::未能解析 SDK 版本，退回 6.0.1(21)"
+            HOSVER="6.0.1"; API="21"
+          fi
+          SDKSTR="${HOSVER}(${API})"
+          echo "SDKSTR=$SDKSTR"
+
+          echo "===== 修正前 build-profile.json5 ====="
+          cat ohos/build-profile.json5 || true
+
+          # hvigor 00306042：API>=10 时 SDK 版本必须是字符串
+          for k in compileSdkVersion compatibleSdkVersion targetSdkVersion; do
+            sed -i -E "s/(\"$k\"[[:space:]]*:[[:space:]]*)[0-9]+/\1\"$SDKSTR\"/g" ohos/build-profile.json5
+          done
+
+          echo "===== 修正后 build-profile.json5 ====="
+          cat ohos/build-profile.json5 || true
+
+          # hvigor 00303024：根 oh-package.json5 与 hvigor/hvigor-config.json5
+          # 的 modelVersion 必须同时存在且完全相等，缺失任一都会报「项目结构需升级」
+          MV=$(grep -oE '"modelVersion"[[:space:]]*:[[:space:]]*"[^"]+"' ohos/hvigor/hvigor-config.json5 2>/dev/null \
+                | head -1 | grep -oE '"[^"]+"$' | tr -d '"')
+          if [ -n "${MV:-}" ]; then
+            if ! grep -q '"modelVersion"' ohos/oh-package.json5 2>/dev/null; then
+              echo "::notice::oh-package.json5 缺少 modelVersion，补 $MV"
+              sed -i "0,/{/s/{/{\n  \"modelVersion\": \"$MV\",/" ohos/oh-package.json5
+            fi
+          fi
+          echo "===== modelVersion 一致性 ====="
+          grep -n 'modelVersion' ohos/oh-package.json5 ohos/hvigor/hvigor-config.json5 2>/dev/null || true
+
       - name: 构建 HAP
         run: |
           set -uo pipefail
