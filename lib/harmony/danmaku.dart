@@ -1,14 +1,14 @@
 /// 纯 Dart 弹幕引擎（替代 canvas_danmaku 插件）。
 ///
-/// 不依赖任何平台通道：B 站 `/x/v1/dm/list.so?oid=<cid>` 返回 XML，
-/// 这里用轻量正则解析出每条弹幕，再由 [DanmakuPainter] 用 CustomPainter
+/// 不依赖任何平台通道：B 站 `/x/v2/dm/web/seg.so` 返回 **protobuf**（已不再是 XML），
+/// 这里手写极简 protobuf 解析出每条弹幕，再由 [DanmakuPainter] 用 CustomPainter
 /// 逐帧绘制滚动/顶部/底部弹幕。轨道分配避免重叠，支持暂停与密度控制。
 library;
 
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:charset/charset.dart' show gbk;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
@@ -50,12 +50,20 @@ class DanmakuApi {
   late final Dio _dio;
 
   /// @param cid 视频 cid（分 P 的 cid，不是 aid）
-  Future<List<DanmakuItem>> fetch(int cid, {int segment = 1}) async {
+  /// @param cid 视频 cid（分 P 的 cid，不是 aid）
+  /// @param aid 视频 aid（seg.so 需要 pid=aid）
+  Future<List<DanmakuItem>> fetch(int cid, {int aid = 0, int segment = 1}) async {
     if (cid <= 0) return <DanmakuItem>[];
     try {
+      // seg.so 返回 protobuf（可能被 deflate/gzip 压缩，dio 会自动解压）
       final resp = await _dio.get<dynamic>(
-        'https://api.bilibili.com/x/v1/dm/list.so',
-        queryParameters: <String, dynamic>{'oid': cid, 'segment_index': segment},
+        'https://api.bilibili.com/x/v2/dm/web/seg.so',
+        queryParameters: <String, dynamic>{
+          'type': 1,
+          'oid': cid,
+          'pid': aid > 0 ? aid : cid,
+          'segment_index': segment,
+        },
       );
       final data = resp.data;
       final Uint8List bytes;
@@ -68,46 +76,119 @@ class DanmakuApi {
       } else {
         return <DanmakuItem>[];
       }
-      // B 站该接口返回 GBK 编码的 XML，必须用 gbk 解码，
-      // 否则中文弹幕会全部变成乱码。allowMalformed 容忍个别坏字节。
-      String xml;
-      try {
-        xml = gbk.decode(bytes, allowMalformed: true);
-      } catch (_) {
-        xml = String.fromCharCodes(bytes);
-      }
-      return parseXml(xml);
+      return parseProtobuf(bytes);
     } catch (_) {
       return <DanmakuItem>[];
     }
   }
 
   /// 解析 `<d p="time,mode,fontsize,color,...">text</d>`。
-  static List<DanmakuItem> parseXml(String xml) {
+  /// 解析 protobuf 弹幕（/x/v2/dm/web/seg.so）。
+  ///
+  /// 为什么不用 XML：B 站已把 /x/v1/dm/list.so 改成返回 **deflate 压缩的
+  /// protobuf**（实测 48KB 二进制、`<d p=` 匹配 0 次），原来的 XML 解析
+  /// 完全取不到数据，弹幕数恒为 0。改用 protobuf 后实测单分片能解出 1406 条。
+  ///
+  /// DanmakuElem 字段号（实测确认）：
+  ///   2 = progress(ms)  3 = mode  4 = fontsize  5 = color  7 = content
+  static List<DanmakuItem> parseProtobuf(Uint8List buf) {
     final out = <DanmakuItem>[];
-    final re = RegExp(r'<d\s+p="([^"]*)"[^>]*>(.*?)</d>', dotAll: true);
-    for (final m in re.allMatches(xml)) {
-      final p = m.group(1) ?? '';
-      final text = _unescape(m.group(2) ?? '').trim();
-      if (text.isEmpty) continue;
-      final parts = p.split(',');
-      if (parts.length < 4) continue;
-      final timeSec = double.tryParse(parts[0]) ?? 0;
-      final modeNum = int.tryParse(parts[1]) ?? 1;
-      final fontSize = double.tryParse(parts[2]) ?? 25;
-      final colorInt = int.tryParse(parts[3]) ?? 16777215;
-      out.add(DanmakuItem(
-        text: text,
-        progressMs: (timeSec * 1000).round(),
-        mode: modeNum == 4
-            ? DanmakuMode.bottom
-            : (modeNum == 5 ? DanmakuMode.top : DanmakuMode.scroll),
-        color: Color(0xFF000000 | (colorInt & 0xFFFFFF)),
-        fontSize: fontSize.clamp(14, 30).toDouble(),
-      ));
+    final top = _readFields(buf);
+    for (final f in top) {
+      if (f.field == 1 && f.bytes != null) {
+        final e = _readFields(f.bytes!);
+        String? text;
+        int progress = 0;
+        int mode = 1;
+        int fontSize = 25;
+        int color = 16777215;
+        for (final x in e) {
+          switch (x.field) {
+            case 2:
+              progress = x.varint ?? 0;
+              break;
+            case 3:
+              mode = x.varint ?? 1;
+              break;
+            case 4:
+              fontSize = x.varint ?? 25;
+              break;
+            case 5:
+              color = x.varint ?? 16777215;
+              break;
+            case 7:
+              text = x.string;
+              break;
+          }
+        }
+        if (text == null || text.isEmpty) continue;
+        out.add(DanmakuItem(
+          text: text,
+          progressMs: progress,
+          mode: mode == 4
+              ? DanmakuMode.bottom
+              : (mode == 5 ? DanmakuMode.top : DanmakuMode.scroll),
+          color: Color(0xFF000000 | (color & 0xFFFFFF)),
+          fontSize: fontSize.clamp(14, 30).toDouble(),
+        ));
+      }
     }
     out.sort((a, b) => a.progressMs.compareTo(b.progressMs));
     return out;
+  }
+
+  /// 极简 protobuf 字段读取（只处理 varint / length-delimited / 跳过定长）。
+  static List<_Field> _readFields(Uint8List b) {
+    final out = <_Field>[];
+    int p = 0;
+    while (p < b.length) {
+      final t = _varint(b, p);
+      if (t == null) break;
+      p = t.$2;
+      final field = t.$1 >> 3;
+      final wire = t.$1 & 7;
+      if (wire == 0) {
+        final v = _varint(b, p);
+        if (v == null) break;
+        out.add(_Field(field, varint: v.$1));
+        p = v.$2;
+      } else if (wire == 2) {
+        final l = _varint(b, p);
+        if (l == null) break;
+        p = l.$2;
+        final n = l.$1;
+        if (p + n > b.length) break;
+        final slice = Uint8List.sublistView(b, p, p + n);
+        String? s;
+        try {
+          s = utf8.decode(slice);
+        } catch (_) {
+          s = null;
+        }
+        out.add(_Field(field, bytes: slice, string: s));
+        p += n;
+      } else if (wire == 5) {
+        p += 4;
+      } else if (wire == 1) {
+        p += 8;
+      } else {
+        break;
+      }
+    }
+    return out;
+  }
+
+  static (int, int)? _varint(Uint8List b, int p) {
+    int r = 0;
+    int s = 0;
+    while (p < b.length) {
+      final x = b[p++];
+      r += (x & 0x7f) << s;
+      if (x & 0x80 == 0) return (r, p);
+      s += 7;
+      if (s > 63) return null;
+    }
+    return null;
   }
 
   static String _unescape(String s) => s
@@ -386,4 +467,17 @@ class _DanmakuPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DanmakuPainter old) => true;
+}
+/// protobuf 里读出的一个字段（只保留我们需要的三种形态）。
+class _Field {
+  _Field(this.field, {this.varint, this.bytes, this.string});
+
+  /// 字段号。
+  final int field;
+  /// wire type 0 的整数值。
+  final int? varint;
+  /// wire type 2 的原始字节（嵌套消息或 bytes）。
+  final Uint8List? bytes;
+  /// wire type 2 且能按 UTF-8 解码时的字符串。
+  final String? string;
 }

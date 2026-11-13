@@ -458,7 +458,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     final d = _detail;
     if (d == null || d.pages.isEmpty) return;
     setState(() => _danmakuLoading = true);
-    final items = await _danmakuApi.fetch(d.pages.first.cid);
+    final items = await _danmakuApi.fetch(d.pages.first.cid, aid: d.aid);
     if (!mounted) return;
     _danmaku.load(items);
     _danmaku.setEnabled(true);
