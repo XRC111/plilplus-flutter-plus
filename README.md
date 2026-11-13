@@ -177,13 +177,14 @@ GitHub Actions 已配置完整流程（[build_android.yml](.github/workflows/bui
 | 能力 | 原插件 | 自研实现 | 为什么不需要原生 |
 | --- | --- | --- | --- |
 | 图片缓存 | `cached_network_image_ce` | `lib/harmony/image_cache.dart`：`HttpClient` + 24 MB 内存 LRU + 在途请求合并 + 占位/错误态 | 网络下载与内存缓存都是纯 Dart；`dart:io` 在 Flutter-OH 上可用（已由 CI 验证） |
-| 弹幕 | `canvas_danmaku` | `lib/harmony/danmaku.dart`：拉取 `/x/v1/dm/list.so` 的 XML，用 `CustomPainter` + `AnimationController` 自己绘制滚动/顶部/底部弹幕，含轨道分配、描边、暂停 | 弹幕本质是 2D 文字绘制，Flutter 自带渲染管线即可 |
+| 弹幕 | `canvas_danmaku` | `lib/harmony/danmaku.dart`：拉取 `/x/v2/dm/web/seg.so` 的 protobuf，手写极简 protobuf 解析，再用 `CustomPainter` + `AnimationController` 自己绘制滚动/顶部/底部弹幕，含轨道分配、描边、暂停 | 弹幕本质是 2D 文字绘制，Flutter 自带渲染管线即可 |
 
 **仍未覆盖**：视频播放（`media_kit` + libmpv）、投屏、扫码登录、本地下载、图片保存。
 这些确实需要 HarmonyOS 原生 API（如 `AVPlayer`），下一步需要把 `flutter create`
 临时生成的 ohos 工程骨架固化进仓库、写 ArkTS `MethodChannel` 桥接，属于另一阶段工作。
 
-> 已知限制：弹幕 XML 用纯 Dart 的 `charset` 包做 GBK 解码，中文可正常显示；
+> 弹幕走 `/x/v2/dm/web/seg.so`（B 站已把 `list.so` 从 XML 改成 **deflate 压缩的
+> protobuf**），用自写的极简 protobuf 解析器解码，中文正常；实测单分片 1406 条。
 > 弹幕绘制性能与图片缓存命中率均**只过编译验证，待真机确认**。
 
 构建在临时目录里 `flutter create --platforms=ohos` 生成工程后再 `flutter build hap`，
