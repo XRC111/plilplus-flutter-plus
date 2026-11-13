@@ -14,6 +14,8 @@ import 'harmony/api.dart';
 import 'harmony/image_cache.dart';
 import 'harmony/danmaku.dart';
 import 'harmony/player.dart';
+import 'harmony/pili_ui.dart';
+import 'harmony/video_grid_card.dart';
 
 void main() => runApp(const PiliPlusHarmonyApp());
 
@@ -22,24 +24,11 @@ class PiliPlusHarmonyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 统一走 pili_ui 的深色主题，配色对齐 B 站官方（粉主色 + 深灰底）。
     return MaterialApp(
       title: 'PiliPlus',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFB7299),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF6F6F8),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFB7299),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: buildPiliTheme(),
       home: const MainPage(),
     );
   }
@@ -102,16 +91,146 @@ class _MainPageState extends State<MainPage> {
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _section.index,
-        onDestinationSelected: (i) =>
-            setState(() => _section = Section.values[i]),
-        destinations: Section.values
-            .map((s) => NavigationDestination(
-                  icon: Icon(s.icon),
-                  label: s.label,
-                ))
-            .toList(),
+      // 官方底栏：5 个入口 + 中间凸起的发布按钮
+      bottomNavigationBar: _buildBottomBar(),
+    );
+  }
+
+  /// 顶部：头像 + 搜索框 + 消息角标（对齐官方首页）。
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+      child: Row(
+        children: [
+          // 头像（未登录时用占位图标）
+          Container(
+            width: 32,
+            height: 32,
+            decoration: const BoxDecoration(
+              color: PiliColor.surfaceAlt,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.person,
+                size: 20, color: PiliColor.textSub),
+          ),
+          const SizedBox(width: 8),
+          // 搜索框（点一下切到搜索板块）
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _section = Section.search),
+              child: Container(
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: PiliColor.surfaceAlt,
+                  borderRadius: BorderRadius.circular(17),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.search, size: 17, color: PiliColor.textSub),
+                    SizedBox(width: 6),
+                    Text('搜索',
+                        style: TextStyle(
+                            color: PiliColor.textWeak, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 消息
+          Stack(
+            clipBehavior: Clip.none,
+            children: const [
+              Icon(Icons.mail_outline,
+                  size: 24, color: PiliColor.text),
+              Positioned(
+                right: -1,
+                top: -1,
+                child: _Dot(),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 底部：首页 / 动态 / [+ 发布] / 会员购 / 我的。
+  /// 中间的发布按钮做成凸起圆形，是官方最显眼的特征。
+  Widget _buildBottomBar() {
+    const items = <({IconData icon, String label, Section? sec})>[
+      (icon: Icons.home_rounded, label: '首页', sec: Section.feed),
+      (icon: Icons.wind_power_rounded, label: '动态', sec: Section.dynamics),
+      (icon: Icons.shopping_bag_outlined, label: '会员购', sec: null),
+      (icon: Icons.person_rounded, label: '我的', sec: null),
+    ];
+    return Container(
+      decoration: const BoxDecoration(
+        color: PiliColor.surface,
+        border: Border(top: BorderSide(color: PiliColor.divider, width: 0.5)),
+      ),
+      padding: const EdgeInsets.only(top: 6, bottom: 4),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 46,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Row(
+                children: [
+                  _bottomItem(items[0], 0),
+                  _bottomItem(items[1], 1),
+                  // 中间给凸起按钮留位
+                  const Expanded(child: SizedBox()),
+                  _bottomItem(items[2], 2),
+                  _bottomItem(items[3], 3),
+                ],
+              ),
+              // 凸起发布按钮
+              Positioned(
+                left: 0,
+                right: 0,
+                top: -14,
+                child: Center(
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: PiliColor.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add, color: Colors.white, size: 26),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _bottomItem(({IconData icon, String label, Section? sec}) it, int i) {
+    final sec = it.sec;
+    final active = sec != null && _section == sec;
+    final color = active ? PiliColor.primary : PiliColor.textSub;
+    return Expanded(
+      child: InkWell(
+        onTap: sec == null
+            ? null
+            : () => setState(() => _section = sec),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(it.icon, size: 22, color: color),
+            const SizedBox(height: 2),
+            Text(it.label,
+                style: TextStyle(color: color, fontSize: 10, height: 1.1)),
+          ],
+        ),
       ),
     );
   }
@@ -146,32 +265,21 @@ class _MainPageState extends State<MainPage> {
         );
     }
   }
+}
 
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFB7299),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            alignment: Alignment.center,
-            child: const Text('P',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18)),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            _section == Section.search ? 'PiliPlus' : 'PiliPlus · ${_section.label}',
-            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
-          ),
-        ],
+/// 消息角标上的小红点。
+class _Dot extends StatelessWidget {
+  const _Dot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: BoxDecoration(
+        color: PiliColor.primary,
+        shape: BoxShape.circle,
+        border: Border.all(color: PiliColor.bg, width: 1),
       ),
     );
   }
@@ -270,21 +378,29 @@ class _VideoListState extends State<_VideoList>
         _hasMore = true;
         await _load();
       },
-      child: ListView.separated(
+      // 双列瀑布流（对齐官方首页），底部加载态用 SliverToBoxAdapter 塞进同一滚动体
+      child: CustomScrollView(
         controller: _scroll,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-        itemCount: _items.length + (_hasMore ? 1 : 0),
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, i) {
-          if (i >= _items.length) {
-            return const Padding(
-              padding: EdgeInsets.all(18),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return _VideoCard(item: _items[i]);
-        },
+        slivers: [
+          const SliverToBoxAdapter(child: SizedBox(height: 4)),
+          VideoGridSliver(
+            items: _items,
+            onTapItem: (item) => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => VideoDetailPage(bvid: item.bvid, fallback: item),
+              ),
+            ),
+          ),
+          if (_hasMore)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 18),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        ],
       ),
     );
   }
