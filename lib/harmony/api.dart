@@ -86,13 +86,16 @@ class BiliApi {
   }
 
   /// 视频评论。
+  ///
+  /// 用 /x/v2/reply（老分页接口）：实测 /x/v2/reply/main 无登录态会返回
+  /// code:-352 风控，评论恒为空；这个接口能稳定返回 code:0 + replies。
   Future<List<ReplyItem>> replies(int aid, {int page = 1}) async {
-    final data = await _get('/x/v2/reply/main', params: {
-      'oid': aid,
+    final data = await _get('/x/v2/reply', params: {
       'type': 1,
-      'mode': 3,
-      'next': page,
+      'oid': aid,
+      'pn': page,
       'ps': 20,
+      'sort': 2,
     });
     final list = (data is Map ? data['replies'] : null) as List? ?? [];
     return list.whereType<Map>().map(ReplyItem.fromJson).toList();
