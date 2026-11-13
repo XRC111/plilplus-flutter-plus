@@ -11,7 +11,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 /// 内存 LRU：最多 [maxBytes] 字节，超出按插入顺序淘汰。
 class _MemCache {
