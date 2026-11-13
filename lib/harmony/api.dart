@@ -110,6 +110,25 @@ class BiliApi {
     throw const BiliException(-1, '播放地址为空');
   }
 
+  /// 探测播放直链是否可达（只取前几个字节），返回 HTTP 状态码。
+  /// 用于区分「CDN 拒绝」与「AVPlayer 解码失败」。
+  Future<int> probeUrl(String url, Map<String, String> headers) async {
+    final resp = await _dio.get<dynamic>(
+      url,
+      options: Options(
+        headers: <String, String>{
+          ...headers,
+          'Range': 'bytes=0-0',
+        },
+        responseType: ResponseType.bytes,
+        receiveTimeout: const Duration(seconds: 12),
+        // 206 Partial Content 也算成功
+        validateStatus: (int? s) => s != null && s < 500,
+      ),
+    );
+    return resp.statusCode ?? -1;
+  }
+
   /// 视频评论。
   ///
   /// 用 /x/v2/reply（老分页接口）：实测 /x/v2/reply/main 无登录态会返回

@@ -36,6 +36,7 @@ class _PlayerPageState extends State<PlayerPage> {
   String? _error;
   bool _loading = true;
   bool _initialized = false;
+  String _probe = '未探测';
 
   @override
   void initState() {
@@ -47,7 +48,33 @@ class _PlayerPageState extends State<PlayerPage> {
     try {
       final url = await _api.playUrl(widget.aid, widget.cid);
       if (!mounted) return;
-      final c = VideoPlayerController.networkUrl(Uri.parse(url));
+      // B 站视频 CDN 强制校验 Referer / UA，缺了会 403。
+      // SIG 插件的 create() 会把 httpHeaders 透传给原生层（见
+      // VideoPlayer.createAVPlayer 里的 createMediaSourceWithUrl）。
+      final headers = <String, String>{
+        'Referer': 'https://www.bilibili.com/',
+        'User-Agent':
+            'Mozilla/5.0 (Linux; Android 13; HarmonyOS) AppleWebKit/537.36 '
+                '(KHTML, like Gecko) Chrome/120 Mobile Safari/537.36',
+      };
+
+      // 先用 dio 探测 CDN 是否可达（只取前 1 字节），把真实 HTTP 码记下来。
+      // AVPlayer 的错误信息太笼统（"video player had error!"），
+      // 有这个探测就能区分「CDN 拒绝」和「AVPlayer 解码/状态机问题」。
+      String probe = '未探测';
+      try {
+        final r = await _api.probeUrl(url, headers);
+        probe = 'CDN HTTP $r';
+      } catch (e) {
+        probe = 'CDN 探测失败: $e';
+      }
+      _probe = probe;
+      if (mounted) setState(() {});
+
+      final c = VideoPlayerController.networkUrl(
+        Uri.parse(url),
+        httpHeaders: headers,
+      );
       _controller = c;
       await c.initialize();
       if (!mounted) return;
@@ -98,6 +125,10 @@ class _PlayerPageState extends State<PlayerPage> {
                         const SizedBox(height: 12),
                         Text('无法播放：$_error',
                             style: const TextStyle(color: Colors.white70)),
+                        const SizedBox(height: 8),
+                        Text(_probe,
+                            style: const TextStyle(
+                                color: Colors.orangeAccent, fontSize: 12)),
                       ],
                     ),
                   )
