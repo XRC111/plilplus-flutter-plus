@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 
 import 'harmony/api.dart';
 import 'harmony/image_cache.dart';
+import 'harmony/danmaku.dart';
 
 void main() => runApp(const PiliPlusHarmonyApp());
 
@@ -407,9 +408,20 @@ class VideoDetailPage extends StatefulWidget {
 
 class _VideoDetailPageState extends State<VideoDetailPage> {
   final BiliApi _api = BiliApi();
+  final DanmakuController _danmaku = DanmakuController();
+  final DanmakuApi _danmakuApi = DanmakuApi();
   VideoDetail? _detail;
   List<ReplyItem> _replies = [];
   Object? _error;
+  bool _showDanmaku = false;
+  bool _danmakuLoading = false;
+  int _danmakuCount = 0;
+
+  @override
+  void dispose() {
+    _danmaku.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -434,6 +446,29 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   String _fmt(int n) =>
       n >= 10000 ? '${(n / 10000).toStringAsFixed(1)}万' : n.toString();
 
+  /// 加载弹幕（用第一个分 P 的 cid）。
+  Future<void> _toggleDanmaku() async {
+    if (_showDanmaku) {
+      setState(() {
+        _showDanmaku = false;
+        _danmaku.setEnabled(false);
+      });
+      return;
+    }
+    final d = _detail;
+    if (d == null || d.pages.isEmpty) return;
+    setState(() => _danmakuLoading = true);
+    final items = await _danmakuApi.fetch(d.pages.first.cid);
+    if (!mounted) return;
+    _danmaku.load(items);
+    _danmaku.setEnabled(true);
+    setState(() {
+      _showDanmaku = true;
+      _danmakuLoading = false;
+      _danmakuCount = items.length;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = _detail;
@@ -449,8 +484,60 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                     if (d.cover.isNotEmpty)
                       AspectRatio(
                         aspectRatio: 16 / 9,
-                        child: CachedNetworkImage(url: d.cover, fit: BoxFit.cover),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: CachedNetworkImage(
+                                  url: d.cover, fit: BoxFit.cover),
+                            ),
+                            // 自研弹幕层：纯 CustomPainter，无原生插件
+                            Positioned.fill(
+                              child: DanmakuView(
+                                controller: _danmaku,
+                                height: 200,
+                              ),
+                            ),
+                            if (_danmakuLoading)
+                              const Positioned.fill(
+                                child: Center(
+                                    child: CircularProgressIndicator()),
+                              ),
+                          ],
+                        ),
                       ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                      child: Row(
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _toggleDanmaku,
+                            icon: Icon(
+                              _showDanmaku
+                                  ? Icons.subtitles
+                                  : Icons.subtitles_outlined,
+                              size: 16,
+                            ),
+                            label: Text(
+                              _showDanmaku
+                                  ? '关闭弹幕 ($_danmakuCount)'
+                                  : '显示弹幕',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (_showDanmaku)
+                            IconButton(
+                              tooltip: _danmaku.paused ? '继续' : '暂停',
+                              icon: Icon(_danmaku.paused
+                                  ? Icons.play_arrow
+                                  : Icons.pause,
+                                  size: 18),
+                              onPressed: () => setState(
+                                  () => _danmaku.setPaused(!_danmaku.paused)),
+                            ),
+                        ],
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
