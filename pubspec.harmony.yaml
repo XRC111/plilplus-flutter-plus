@@ -3,17 +3,29 @@ description: PiliPlus HarmonyOS / OpenHarmony build (Flutter-OH).
 publish_to: "none"
 version: 2.1.6+1
 
-# 鸿蒙专用依赖集：只保留纯 Dart / Flutter-OH 已适配的部分。
-# 主工程 pubspec.yaml 里的 20+ 个自定义 git fork 插件（media_kit 系列、
+# 鸿蒙专用依赖集。
+#
+# 主工程 pubspec.yaml 里有 20+ 个自定义 git fork 插件（media_kit 系列、
 # audio_service、canvas_danmaku、dlna_dart、flutter_inappwebview、window_manager、
-# getx 等）目前没有 ohos 实现，直接 pub get 会失败。
-# 这里用最小可用集产出可安装的 HAP 骨架；功能补齐见 README 的鸿蒙章节。
+# getx 等），经 GitHub API 逐个核实**全部没有 ohos 实现**，直接 pub get 会失败。
+#
+# 但主工程 lib/ 下 1331 个 Dart 文件里有 1255 个是纯 Dart（网络/模型/工具/UI），
+# 与平台无关。因此这里的做法是：用纯 Dart 依赖重建一个**真正能浏览 B 站内容**
+# 的客户端（首页/热门/排行/搜索/视频详情/动态），而不是只放占位骨架。
+# 播放器、弹幕、投屏等强原生能力仍受插件生态限制，见 README 鸿蒙章节。
 environment:
   sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # 纯 Dart HTTP 客户端，用于直连 B 站公开 API（与主工程 lib/http 同款协议栈）
+  dio: ^5.4.0
+  # 纯 Dart 工具库
+  collection: ^1.18.0
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:

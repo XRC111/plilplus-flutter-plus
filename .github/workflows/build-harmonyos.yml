@@ -120,9 +120,11 @@ jobs:
           export FLUTTER_STORAGE_BASE_URL="https://storage.flutter-io.cn"
 
           rm -rf "$RUNNER_TEMP/harmony_app"
-          mkdir -p "$RUNNER_TEMP/harmony_app/lib"
+          mkdir -p "$RUNNER_TEMP/harmony_app/lib/harmony"
           cp pubspec.harmony.yaml "$RUNNER_TEMP/harmony_app/pubspec.yaml"
           cp lib/harmony_main.dart "$RUNNER_TEMP/harmony_app/lib/main.dart"
+          # 鸿蒙业务层：纯 Dart 的 B 站 API 客户端（不依赖任何平台插件）
+          cp lib/harmony/*.dart "$RUNNER_TEMP/harmony_app/lib/harmony/"
           cd "$RUNNER_TEMP/harmony_app"
           flutter create --platforms=ohos --org com.piliplus --project-name piliplus_harmony .
           flutter pub get
