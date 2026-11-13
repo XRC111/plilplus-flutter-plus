@@ -1,6 +1,6 @@
 name: Build HarmonyOS HAP
 
-# PiliPlus 鸿蒙版构建（Flutter-OH / CPF-Flutter）。
+# PiliPlus 鸿蒙版构建（Flutter-OH）。
 #
 # 主工程 lib/ 依赖 20+ 个尚无 ohos 实现的原生插件（media_kit / 弹幕 / 投屏 /
 # WebView 等），直接 pub get 会失败。因此这里用精简 pubspec + 最小入口，
@@ -26,18 +26,19 @@ jobs:
     env:
       PUB_HOSTED_URL: "https://pub.flutter-io.cn"
       FLUTTER_STORAGE_BASE_URL: "https://storage.flutter-io.cn"
-      # CPF-Flutter 新版 SDK：clone 多镜像回退（任一可用即可）
-      FLUTTER_OHOS_REPOS: >-
-        https://gitcode.com/CPF-Flutter/flutter_flutter.git
-        https://atomgit.com/CPF-Flutter/flutter_flutter.git
-      # 首选新仓库的新版分支；都不可用时回退 gitee 老分支（Dart 3.4，功能降级）
-      FLUTTER_OHOS_BRANCH: "oh-3.41.9-release"
-      FLUTTER_OHOS_FALLBACK_REPO: "https://gitee.com/harmonycommando_flutter/flutter.git"
-      FLUTTER_OHOS_FALLBACK_BRANCH: "oh-3.22.3"
-      # 6.1 系列；小版本不敏感，按可用性回退
+      # Flutter-OH 候选（每行 "仓库|分支"），按顺序尝试，第一个 clone 成功的即采用。
+      #
+      # 顺序说明：HuggingFace 的 command-line-tools 最高只到 6.0.1.251（API 21），
+      # 而 CPF-Flutter 的 oh-3.41.9-release 引擎用了 CompetitionStrategy、
+      # Window.isInFreeWindowMode 等更新 API，在 API 21 上 ArkTS 编译直接报错。
+      # 因此优先用 harmonycommando 的 oh-3.22.3（面向 HarmonyOS 5.x/6.0），
+      # 它能在 API 21 上编译通过；CPF 分支保留作后续 SDK 升级后的备选。
+      FLUTTER_OHOS_CANDIDATES: |
+        https://gitee.com/harmonycommando_flutter/flutter.git|oh-3.22.3
+        https://gitcode.com/CPF-Flutter/flutter_flutter.git|oh-3.41.9-release
+        https://atomgit.com/CPF-Flutter/flutter_flutter.git|oh-3.41.9-release
+      # 只保留真实存在的 SDK 直链（6.1.x 在 HF 上是 404，已移除）
       HOS_SDK_URLS: >-
-        https://huggingface.co/csukuangfj/harmonyos-commandline-tools/resolve/main/commandline-tools-linux-x64-6.1.1.280.zip
-        https://huggingface.co/csukuangfj/harmonyos-commandline-tools/resolve/main/commandline-tools-linux-x64-6.1.1.300.zip
         https://huggingface.co/csukuangfj/harmonyos-commandline-tools/resolve/main/commandline-tools-linux-x64-6.0.1.251.zip
         https://repo.huaweicloud.com/harmonyos/ohpm/5.1.0/commandline-tools-linux-x64-5.1.0.840.zip
 
@@ -57,14 +58,15 @@ jobs:
           path: |
             ~/hos-sdk.pkg
             ~/flutter_ohos
-          key: hos-toolchain-sdk6.1-cpf-oh3.41.9-v1
+          # key 变更以丢弃之前缓存的 CPF(3.41.9) 克隆
+          key: hos-toolchain-sdk6.0.1-flutter322-v2
           restore-keys: |
             hos-toolchain-
 
       - name: 安装鸿蒙 SDK（公开直链，多镜像回退）
         run: bash scripts/harmony/setup-sdk.sh
 
-      - name: 准备 Flutter-OH SDK（CPF-Flutter，clone 多镜像回退）
+      - name: 准备 Flutter-OH SDK（多候选 clone 回退）
         run: |
           set -uo pipefail
           export PUB_HOSTED_URL="https://pub.flutter-io.cn"
@@ -73,35 +75,42 @@ jobs:
           if [ -x "$HOME/flutter_ohos/bin/flutter" ]; then
             echo "::notice::flutter_ohos 命中缓存"
           else
-            read -r -a REPOS <<< "${FLUTTER_OHOS_REPOS:-}"
             OK=0
-            for repo in "${REPOS[@]}"; do
-              echo "尝试 clone: $repo @ $FLUTTER_OHOS_BRANCH"
+            USED=""
+            while IFS='|' read -r repo branch; do
+              [ -z "${repo:-}" ] && continue
+              echo "尝试 clone: $repo @ $branch"
               rm -rf "$HOME/flutter_ohos"
-              if GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$FLUTTER_OHOS_BRANCH" \
-                  "$repo" "$HOME/flutter_ohos" 2>&1; then OK=1; break; fi
-              echo "::warning::clone 失败，尝试下一个镜像"
-            done
+              if GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$branch" \
+                  "$repo" "$HOME/flutter_ohos" 2>&1; then
+                OK=1; USED="$repo|$branch"; break
+              fi
+              echo "::warning::clone 失败，尝试下一个候选"
+            done <<< "${FLUTTER_OHOS_CANDIDATES:-}"
             if [ "$OK" -ne 1 ]; then
-              echo "::notice::CPF-Flutter 全部不可用，回退 gitee 老分支（Dart 3.4）"
-              rm -rf "$HOME/flutter_ohos"
-              GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$FLUTTER_OHOS_FALLBACK_BRANCH" \
-                "$FLUTTER_OHOS_FALLBACK_REPO" "$HOME/flutter_ohos"
+              echo "::error::所有 Flutter-OH 候选仓库均 clone 失败"
+              exit 1
             fi
+            echo "::notice::使用 $USED"
           fi
 
           export PATH="$HOME/flutter_ohos/bin:$PATH"
           rm -f "$HOME/flutter_ohos/bin/cache/flutter.version.json"
-          # 分支无 tag 时打一个真实版本 tag，避免 pub 解析失败
-          git -C "$HOME/flutter_ohos" tag 3.41.9 2>/dev/null || true
+
+          # 分支无 tag 时补一个真实版本 tag，避免 pub 解析报 "no version"。
+          # 版本号从当前分支/目录推导，兼容 3.22.x 与 3.41.x。
+          BR=$(git -C "$HOME/flutter_ohos" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+          VER=$(echo "$BR" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          if [ -z "${VER:-}" ]; then VER="3.22.3"; fi
+          git -C "$HOME/flutter_ohos" tag "$VER" 2>/dev/null || true
+          echo "flutter_ohos 分支=$BR 补 tag=$VER"
+
           flutter config --no-analytics >/dev/null 2>&1 || true
 
           echo "===== Flutter-OH 版本 ====="
           flutter --version 2>&1 | head -8 || true
           echo "===== 是否支持 ohos 平台 ====="
           flutter create --help 2>&1 | grep -i -m3 'ohos\|platforms' || true
-          echo "===== 分支信息 ====="
-          git -C "$HOME/flutter_ohos" log --oneline -1 2>/dev/null || true
 
       - name: 生成鸿蒙专用工程（隔离主工程依赖）
         run: |
@@ -141,8 +150,6 @@ jobs:
           echo ""
 
           # hvigor 00306042：API>=10 时三个 SDK 版本字段必须是 "x.y.z(NN)" 形式的字符串。
-          # Flutter-OH 模板里 compatibleSdkVersion 是 "5.0.5(17)"、targetSdkVersion 是
-          # 非法格式 "26.0.0"，且通常缺 compileSdkVersion —— sed 替换数字无效。
           # 具体改写逻辑见 scripts/harmony/fix-profile.cjs。
           if [ -f ohos/build-profile.json5 ]; then
             node "$GITHUB_WORKSPACE/scripts/harmony/fix-profile.cjs" ohos/build-profile.json5 "$SDKSTR"
@@ -175,7 +182,7 @@ jobs:
           export FLUTTER_STORAGE_BASE_URL="https://storage.flutter-io.cn"
           cd "$RUNNER_TEMP/harmony_app"
 
-          flutter build hap --release 2>&1 | tail -60 || true
+          flutter build hap --release 2>&1 | tail -80 || true
 
           echo "--- HAP 产物 ---"
           find . -name "*.hap" -type f | head -20 || true

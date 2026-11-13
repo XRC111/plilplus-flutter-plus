@@ -3,7 +3,7 @@ description: PiliPlus HarmonyOS / OpenHarmony build (Flutter-OH).
 publish_to: "none"
 version: 2.1.6+1
 
-# 鸿蒙专用依赖集：只保留纯 Dart / CPF-Flutter 已适配插件。
+# 鸿蒙专用依赖集：只保留纯 Dart / Flutter-OH 已适配的部分。
 # 主工程 pubspec.yaml 里的 20+ 个自定义 git fork 插件（media_kit 系列、
 # audio_service、canvas_danmaku、dlna_dart、flutter_inappwebview、window_manager、
 # getx 等）目前没有 ohos 实现，直接 pub get 会失败。
@@ -18,7 +18,9 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  # 兼容 Flutter 3.22（Dart 3.4）：flutter_lints 5.x 要求 Dart >= 3.5，
+  # 在 oh-3.22.3 分支上会 pub 解析失败，故降到 4.x。
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
