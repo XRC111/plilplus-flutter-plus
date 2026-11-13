@@ -11,6 +11,7 @@ library;
 import 'package:flutter/material.dart';
 
 import 'harmony/api.dart';
+import 'harmony/image_cache.dart';
 
 void main() => runApp(const PiliPlusHarmonyApp());
 
@@ -322,16 +323,7 @@ class _VideoCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (item.cover.isNotEmpty)
-                    Image.network(
-                      item.cover,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: const Color(0xFFE3E3E8),
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.broken_image_outlined,
-                            color: Colors.grey),
-                      ),
-                    )
+                    CachedNetworkImage(url: item.cover, fit: BoxFit.cover)
                   else
                     Container(color: const Color(0xFFE3E3E8)),
                   Positioned(
@@ -457,10 +449,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                     if (d.cover.isNotEmpty)
                       AspectRatio(
                         aspectRatio: 16 / 9,
-                        child: Image.network(d.cover,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                                color: const Color(0xFFE3E3E8))),
+                        child: CachedNetworkImage(url: d.cover, fit: BoxFit.cover),
                       ),
                     Padding(
                       padding: const EdgeInsets.all(16),
