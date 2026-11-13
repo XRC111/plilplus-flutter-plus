@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import 'api.dart';
+import 'video_proxy.dart';
 
 class PlayerPage extends StatefulWidget {
   const PlayerPage({
@@ -48,22 +49,15 @@ class _PlayerPageState extends State<PlayerPage> {
     try {
       final url = await _api.playUrl(widget.aid, widget.cid);
       if (!mounted) return;
-      // B 站视频 CDN 强制校验 Referer / UA，缺了会 403。
-      // SIG 插件的 create() 会把 httpHeaders 透传给原生层（见
-      // VideoPlayer.createAVPlayer 里的 createMediaSourceWithUrl）。
-      final headers = <String, String>{
-        'Referer': 'https://www.bilibili.com/',
-        'User-Agent':
-            'Mozilla/5.0 (Linux; Android 13; HarmonyOS) AppleWebKit/537.36 '
-                '(KHTML, like Gecko) Chrome/120 Mobile Safari/537.36',
-      };
 
-      // 先用 dio 探测 CDN 是否可达（只取前 1 字节），把真实 HTTP 码记下来。
-      // AVPlayer 的错误信息太笼统（"video player had error!"），
-      // 有这个探测就能区分「CDN 拒绝」和「AVPlayer 解码/状态机问题」。
+      // 先用 dio 探测 CDN（只取 1 字节），确认直链本身可用。
+      // 用主工程同款 BiliDroid UA + Referer：实测 206。
       String probe = '未探测';
       try {
-        final r = await _api.probeUrl(url, headers);
+        final r = await _api.probeUrl(url, <String, String>{
+          'User-Agent': 'Bilibili Freedoooooom/MarkII',
+          'Referer': 'https://www.bilibili.com/',
+        });
         probe = 'CDN HTTP $r';
       } catch (e) {
         probe = 'CDN 探测失败: $e';
@@ -71,10 +65,15 @@ class _PlayerPageState extends State<PlayerPage> {
       _probe = probe;
       if (mounted) setState(() {});
 
-      final c = VideoPlayerController.networkUrl(
-        Uri.parse(url),
-        httpHeaders: headers,
-      );
+      // 关键：不把 httpHeaders 传给 AVPlayer。
+      // SIG 插件一旦收到 headers 就会调 setMediaSource，而该接口只能在 idle
+      // 状态调用，插件却先设了 avPlayer.url，必然报 videoError。
+      // 改由本地代理补 Referer/UA，AVPlayer 只播 127.0.0.1 的普通 URL。
+      final local = await VideoProxy.instance.start(url);
+      _probe = '$probe | 代理 $local';
+      if (mounted) setState(() {});
+
+      final c = VideoPlayerController.networkUrl(Uri.parse(local));
       _controller = c;
       await c.initialize();
       if (!mounted) return;
@@ -100,6 +99,8 @@ class _PlayerPageState extends State<PlayerPage> {
   @override
   void dispose() {
     _controller?.dispose();
+    // 关掉本地代理，避免端口泄漏
+    VideoProxy.instance.stop();
     super.dispose();
   }
 
