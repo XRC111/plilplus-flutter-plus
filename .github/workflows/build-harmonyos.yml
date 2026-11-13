@@ -142,31 +142,10 @@ jobs:
 
           # hvigor 00306042：API>=10 时三个 SDK 版本字段必须是 "x.y.z(NN)" 形式的字符串。
           # Flutter-OH 模板里 compatibleSdkVersion 是 "5.0.5(17)"、targetSdkVersion 是
-          # "26.0.0"（非法格式），且**没有** compileSdkVersion —— 用 sed 只会白改，
-          # 这里用 Node 精确覆盖，并在缺失时补齐 compileSdkVersion。
+          # 非法格式 "26.0.0"，且通常缺 compileSdkVersion —— sed 替换数字无效。
+          # 具体改写逻辑见 scripts/harmony/fix-profile.cjs。
           if [ -f ohos/build-profile.json5 ]; then
-            SDKSTR="$SDKSTR" node -e '
-const fs = require("fs");
-const p = "ohos/build-profile.json5";
-const v = process.env.SDKSTR;
-let s = fs.readFileSync(p, "utf8");
-for (const k of ["compileSdkVersion", "compatibleSdkVersion", "targetSdkVersion"]) {
-  const re = new RegExp("(\"" + k + "\"[ \t]*:[ \t]*)([^,}\\n]+)", "g");
-  if (s.match(re)) {
-    s = s.replace(re, function (m, p1) { return p1 + "\"" + v + "\""; });
-    console.log("set " + k + " = " + v);
-  } else {
-    console.log("missing " + k);
-  }
-}
-if (s.indexOf("compileSdkVersion") < 0) {
-  s = s.replace(/("name"[ \t]*:[ \t]*"default"[ \t]*,)/, function (m, p1) {
-    return p1 + "\n        \"compileSdkVersion\": \"" + v + "\",";
-  });
-  console.log("inserted compileSdkVersion = " + v);
-}
-fs.writeFileSync(p, s);
-'
+            node "$GITHUB_WORKSPACE/scripts/harmony/fix-profile.cjs" ohos/build-profile.json5 "$SDKSTR"
           else
             echo "::error::ohos/build-profile.json5 不存在，flutter create 可能未生成 ohos 工程"
           fi
@@ -174,8 +153,6 @@ fs.writeFileSync(p, s);
           echo "===== 修正后 build-profile.json5 ====="
           cat ohos/build-profile.json5 || true
           echo ""
-          echo "===== 三个版本字段的最终值 ====="
-          grep -nE 'compileSdkVersion|compatibleSdkVersion|targetSdkVersion' ohos/build-profile.json5 || true
 
           # hvigor 00303024：根 oh-package.json5 与 hvigor/hvigor-config.json5
           # 的 modelVersion 必须同时存在且完全相等，缺失任一都会报「项目结构需升级」
