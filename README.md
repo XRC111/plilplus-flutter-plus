@@ -145,22 +145,33 @@ GitHub Actions 已配置完整流程（[build_android.yml](.github/workflows/bui
 仓库内附了一套**独立的鸿蒙构建流水线**（`.github/workflows/build-harmonyos.yml`），
 产物是可直接安装的 **未签名 HAP**（真机安装需用 DevEco Studio 自行配签名）。
 
-### 当前状态：可安装骨架
+### 当前状态：可浏览内容的真实客户端
 
-主工程 `lib/` 依赖 20+ 个尚无 ohos 实现的原生插件（`media_kit` 系列、`canvas_danmaku`、
-`audio_service`、`dlna_dart`、`flutter_inappwebview`、`window_manager`、`getx` 等），
-直接 `flutter pub get` 就会失败。因此鸿蒙版采用「**精简依赖 + 最小入口**」：
+主工程 14 个自定义 git fork 插件（`audio_service`、`canvas_danmaku`、`getx`、
+`flutter_inappwebview`、`media_kit` 系列等）经 GitHub API 逐个核实**全部没有 ohos 实现**，
+直接 `flutter pub get` 会失败。但主工程 `lib/` 下 **1331 个 Dart 文件里有 1255 个是纯 Dart**
+（网络 / 模型 / 工具 / UI），与平台无关。
+
+因此鸿蒙版不再只放占位骨架，而是用**纯 Dart 依赖重建了真实的 B 站业务层**：
 
 | 文件 | 作用 |
 | --- | --- |
-| `pubspec.harmony.yaml` | 鸿蒙专用依赖集，只保留 `flutter` SDK 依赖 |
-| `lib/harmony_main.dart` | 最小可运行的 ArkUI 承载入口（PiliPlus 主题色） |
+| `pubspec.harmony.yaml` | 鸿蒙专用依赖：`dio` / `collection` / `intl` / `flutter_localizations` |
+| `lib/harmony/api.dart` | B 站公开 API 客户端：推荐、热门、排行榜、搜索、视频详情、评论、动态、UP 主 |
+| `lib/harmony_main.dart` | 完整 UI：五 Tab 导航、无限滚动、下拉刷新、视频卡片、详情页（分 P / 统计 / 评论）、错误重试、深色模式 |
 | `scripts/harmony/setup-sdk.sh` | HarmonyOS Command Line Tools 多镜像下载与布局适配 |
 | `scripts/harmony/fix-profile.cjs` | 修正生成的 `build-profile.json5` 的 SDK 版本格式 |
-| `.github/workflows/build-harmonyos.yml` | 完整构建流水线 |
+| `.github/workflows/build-harmonyos.yml` | 完整构建流水线（会一并复制 `lib/harmony/*.dart`） |
+
+已实现的功能：首页推荐（分页）、热门、全站排行榜、关键词搜索、动态流、
+视频详情页（封面 / 标题 / UP 主 / 播放·弹幕·点赞·投币·收藏·评论数 / 简介 / 分 P 列表 / 评论）。
+所有列表均有加载态、错误态与重试，网络失败不会白屏。
+
+**仍未覆盖（受插件生态限制）**：视频播放（`media_kit` + libmpv）、弹幕渲染、
+投屏、扫码登录、本地下载、图片保存。这些依赖原生实现，需等插件鸿蒙化后接入。
 
 构建在临时目录里 `flutter create --platforms=ohos` 生成工程后再 `flutter build hap`，
-产物约 **6.7 MB**，主工程源码原样保留在 `lib/`。
+产物约 **7.8 MB**，主工程源码原样保留在 `lib/`。
 
 ### 为什么选 `oh-3.22.3`
 
@@ -172,9 +183,12 @@ CPF 分支作为候选保留，等 SDK 升级后可直接切换。
 
 ### 后续路径
 
-1. 等 CPF-Flutter 生态补齐上述插件的 ohos 实现；
-2. 逐个替换 `pubspec.harmony.yaml` 里的依赖，把 `lib/` 真实入口接回；
+1. 等 CPF-Flutter 生态补齐播放器 / 弹幕 / 投屏等插件的 ohos 实现；
+2. 逐个把 `pubspec.harmony.yaml` 的依赖换回主工程版本，接回 `lib/` 完整入口；
 3. 播放器（`media_kit` + `libmpv`）与弹幕是需要优先突破的两块。
+
+已完成的调查：用 GitHub API 检查了 14 个自定义 fork 仓库的根目录，
+**全部没有 `ohos/` 目录**，因此「直接复用主工程入口」这条路目前不可行。
 
 > 说明：鸿蒙流水线只做过编译验证，**未在真机运行**。
 ## Star History
