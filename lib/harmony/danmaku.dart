@@ -8,6 +8,7 @@ library;
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:charset/charset.dart' show gbk;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
@@ -67,13 +68,13 @@ class DanmakuApi {
       } else {
         return <DanmakuItem>[];
       }
-      // B 站该接口返回 GBK 编码的 XML；中文用系统解码可能乱码，
-      // 这里做一次宽松兜底：优先 utf8，失败则逐字节 latin1 保留。
+      // B 站该接口返回 GBK 编码的 XML，必须用 gbk 解码，
+      // 否则中文弹幕会全部变成乱码。allowMalformed 容忍个别坏字节。
       String xml;
       try {
-        xml = String.fromCharCodes(bytes);
+        xml = gbk.decode(bytes, allowMalformed: true);
       } catch (_) {
-        xml = '';
+        xml = String.fromCharCodes(bytes);
       }
       return parseXml(xml);
     } catch (_) {

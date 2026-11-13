@@ -183,7 +183,7 @@ GitHub Actions 已配置完整流程（[build_android.yml](.github/workflows/bui
 这些确实需要 HarmonyOS 原生 API（如 `AVPlayer`），下一步需要把 `flutter create`
 临时生成的 ohos 工程骨架固化进仓库、写 ArkTS `MethodChannel` 桥接，属于另一阶段工作。
 
-> 已知限制：弹幕 XML 是 GBK 编码，当前用宽松字符兜底，个别中文可能乱码；
+> 已知限制：弹幕 XML 用纯 Dart 的 `charset` 包做 GBK 解码，中文可正常显示；
 > 弹幕绘制性能与图片缓存命中率均**只过编译验证，待真机确认**。
 
 构建在临时目录里 `flutter create --platforms=ohos` 生成工程后再 `flutter build hap`，

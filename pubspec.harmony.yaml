@@ -26,6 +26,9 @@ dependencies:
   # 纯 Dart 工具库
   collection: ^1.18.0
   intl: ^0.19.0
+  # 纯 Dart GBK 编解码（无原生依赖、支持 Dart 3）：
+  # B 站 /x/v1/dm/list.so 弹幕 XML 是 GBK 编码，用它解中文，避免乱码。
+  charset: ^2.0.1
 
 dev_dependencies:
   flutter_test:
