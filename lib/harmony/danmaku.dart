@@ -239,7 +239,7 @@ class _DanmakuViewState extends State<DanmakuView>
     }
     _active.removeWhere((a) =>
         a.x + a.width < -40 ||
-        (a.mode != DanmakuMode.scroll && a.age > 5000));
+        (a.item.mode != DanmakuMode.scroll && a.age > 5000));
 
     if (mounted) setState(() {});
   }
