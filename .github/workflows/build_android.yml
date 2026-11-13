@@ -5,6 +5,13 @@ on:
   # one only runs on branches / PRs / manual dispatch.
   push:
     branches: [main, master, dev]
+    # 鸿蒙相关路径不改变 Android 产物，忽略以免每次鸿蒙提交都白跑一次 APK 构建。
+    paths-ignore:
+      - 'pubspec.harmony.yaml'
+      - 'lib/harmony_main.dart'
+      - 'scripts/harmony/**'
+      - '.github/workflows/build-harmonyos.yml'
+      - 'README*'
   pull_request:
     branches: [main, master]
   workflow_dispatch:
