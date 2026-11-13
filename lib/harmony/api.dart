@@ -28,13 +28,8 @@ class BiliApi {
   Future<dynamic> _get(
     String path, {
     Map<String, dynamic>? params,
-    String? baseUrl,
   }) async {
-    final resp = await _dio.get<dynamic>(
-      path,
-      queryParameters: params,
-      options: baseUrl == null ? null : Options(headers: {}),
-    );
+    final resp = await _dio.get<dynamic>(path, queryParameters: params);
     final body = resp.data;
     if (body is Map && body['code'] != 0) {
       throw BiliException(body['code'] as int? ?? -1,
