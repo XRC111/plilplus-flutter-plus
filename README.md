@@ -140,6 +140,43 @@ GitHub Actions 已配置完整流程（[build_android.yml](.github/workflows/bui
 - [dio](https://pub.dev/packages/dio)
 - [liquid_glass_easy](https://pub.dev/packages/liquid_glass_easy)
 
+## HarmonyOS / OpenHarmony
+
+仓库内附了一套**独立的鸿蒙构建流水线**（`.github/workflows/build-harmonyos.yml`），
+产物是可直接安装的 **未签名 HAP**（真机安装需用 DevEco Studio 自行配签名）。
+
+### 当前状态：可安装骨架
+
+主工程 `lib/` 依赖 20+ 个尚无 ohos 实现的原生插件（`media_kit` 系列、`canvas_danmaku`、
+`audio_service`、`dlna_dart`、`flutter_inappwebview`、`window_manager`、`getx` 等），
+直接 `flutter pub get` 就会失败。因此鸿蒙版采用「**精简依赖 + 最小入口**」：
+
+| 文件 | 作用 |
+| --- | --- |
+| `pubspec.harmony.yaml` | 鸿蒙专用依赖集，只保留 `flutter` SDK 依赖 |
+| `lib/harmony_main.dart` | 最小可运行的 ArkUI 承载入口（PiliPlus 主题色） |
+| `scripts/harmony/setup-sdk.sh` | HarmonyOS Command Line Tools 多镜像下载与布局适配 |
+| `scripts/harmony/fix-profile.cjs` | 修正生成的 `build-profile.json5` 的 SDK 版本格式 |
+| `.github/workflows/build-harmonyos.yml` | 完整构建流水线 |
+
+构建在临时目录里 `flutter create --platforms=ohos` 生成工程后再 `flutter build hap`，
+产物约 **6.7 MB**，主工程源码原样保留在 `lib/`。
+
+### 为什么选 `oh-3.22.3`
+
+HuggingFace 上的 `command-line-tools` 最高只到 **6.0.1.251（API 21）**，
+而 CPF-Flutter 的 `oh-3.41.9-release` 引擎用到了 `CompetitionStrategy`、
+`Window.isInFreeWindowMode` 等**更新版本**的 HarmonyOS API，在 API 21 上 ArkTS 编译直接失败。
+因此流水线优先使用 `harmonycommando` 的 **`oh-3.22.3`**（面向 HarmonyOS 5.x/6.0），
+CPF 分支作为候选保留，等 SDK 升级后可直接切换。
+
+### 后续路径
+
+1. 等 CPF-Flutter 生态补齐上述插件的 ohos 实现；
+2. 逐个替换 `pubspec.harmony.yaml` 里的依赖，把 `lib/` 真实入口接回；
+3. 播放器（`media_kit` + `libmpv`）与弹幕是需要优先突破的两块。
+
+> 说明：鸿蒙流水线只做过编译验证，**未在真机运行**。
 ## Star History
 
 <a href="https://star-history.dera.page/#XRC111/plilplus-flutter-plus&Date">
