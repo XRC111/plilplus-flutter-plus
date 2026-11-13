@@ -2,11 +2,12 @@ name: Build HarmonyOS HAP
 
 # PiliPlus 鸿蒙版构建（Flutter-OH）。
 #
-# 主工程 lib/ 依赖 20+ 个尚无 ohos 实现的原生插件（media_kit / 弹幕 / 投屏 /
-# WebView 等），直接 pub get 会失败。因此这里用精简 pubspec + 最小入口，
-# 在临时目录里 flutter create 出鸿蒙工程再构建，产出可安装的 HAP 骨架。
-# 主工程源码保留在 lib/，待插件鸿蒙化后逐步迁入。
+# 主工程 14 个自定义 git fork 插件经核实全部无 ohos 实现，直接 pub get 会失败。
+# 但 lib/ 下 1331 个 Dart 文件里 1255 个是纯 Dart。因此这里用精简 pubspec +
+# 独立的鸿蒙入口（lib/harmony_main.dart + lib/harmony/*.dart），在临时目录里
+# flutter create 出鸿蒙工程再构建，产出**可浏览 B 站内容**的 HAP。
 #
+# 播放器/弹幕/投屏/扫码登录等强原生能力仍受插件生态限制，见 README 鸿蒙章节。
 # 产物为未签名 HAP（真机安装需 DevEco Studio 配签名）。
 "on":
   workflow_dispatch:
@@ -15,6 +16,7 @@ name: Build HarmonyOS HAP
     paths:
       - 'pubspec.harmony.yaml'
       - 'lib/harmony_main.dart'
+      - 'lib/harmony/**'
       - '.github/workflows/build-harmonyos.yml'
       - 'scripts/harmony/**'
 

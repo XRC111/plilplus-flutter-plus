@@ -9,6 +9,7 @@ on:
     paths-ignore:
       - 'pubspec.harmony.yaml'
       - 'lib/harmony_main.dart'
+      - 'lib/harmony/**'
       - 'scripts/harmony/**'
       - '.github/workflows/build-harmonyos.yml'
       - 'README*'
