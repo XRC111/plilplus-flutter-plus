@@ -178,6 +178,42 @@ jobs:
           echo "===== modelVersion 一致性 ====="
           grep -n 'modelVersion' ohos/oh-package.json5 ohos/hvigor/hvigor-config.json5 2>/dev/null || true
 
+      - name: 放行本地明文 HTTP（视频代理）
+        working-directory: ${{ runner.temp }}/harmony_app
+        run: |
+          set -uo pipefail
+          # 播放器用 dart:io HttpServer 起 127.0.0.1 代理来补 B 站 CDN 需要的
+          # Referer/UA（绕开 video_player_ohos 的 setMediaSource 崩溃）。
+          # HarmonyOS 默认禁止明文 HTTP，localhost 通常豁免，这里显式放行更保险。
+          MOD=ohos/entry/src/main/module.json5
+          if [ ! -f "$MOD" ]; then
+            echo "::warning::未找到 $MOD，跳过明文放行"
+            exit 0
+          fi
+          if grep -q 'cleartextTraffic' "$MOD"; then
+            echo "已存在 cleartextTraffic 配置"
+            exit 0
+          fi
+          python3 - "$MOD" <<'PY'
+          import re, sys
+          p = sys.argv[1]
+          s = open(p, encoding='utf-8').read()
+          meta = ('    "metadata": [\n'
+                  '      { "name": "ohos.net.cleartextTraffic", "value": "true" }\n'
+                  '    ],\n')
+          # 插到 module 对象里 requestPermissions 之前；没有就插在第一个 { 之后
+          m = re.search(r'\n(\s*)"requestPermissions"\s*:', s)
+          if m:
+              indent = m.group(1)
+              s = s[:m.start()] + '\n' + meta + s[m.start()+1:]
+          else:
+              i = s.index('{')
+              s = s[:i+1] + '\n' + meta + s[i+1:]
+          open(p, 'w', encoding='utf-8').write(s)
+          print('cleartextTraffic 已写入', p)
+          PY
+          grep -n 'cleartextTraffic' "$MOD" || true
+
       - name: 构建 HAP
         run: |
           set -uo pipefail
