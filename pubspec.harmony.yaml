@@ -27,6 +27,16 @@ dependencies:
   collection: ^1.18.0
   intl: ^0.19.0
 
+  # 视频播放：官方 federated 接口 + OpenHarmony-SIG 的 ohos 实现。
+  # SIG 分支 br_video_player-v2.9.2_ohos 已「升级Flutter3.22」，与 oh-3.22.3 匹配；
+  # video_player_ohos 声明 implements: video_player，会被联邦插件架构自动注册。
+  video_player: ^2.9.2
+  video_player_ohos:
+    git:
+      url: https://gitee.com/openharmony-sig/flutter_packages.git
+      ref: br_video_player-v2.9.2_ohos
+      path: packages/video_player/video_player_ohos
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

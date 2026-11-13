@@ -85,6 +85,31 @@ class BiliApi {
     return VideoDetail.fromJson(data);
   }
 
+  /// 取播放直链。
+  ///
+  /// /x/player/playurl 在 fnval=0 时返回 **durl 单 MP4**（720P），
+  /// 无需登录、无需 WBI 签名、无需 DASH 音视频合成 —— 最适合当前形态。
+  /// 实测 code:0，url 为 https 直链。
+  Future<String> playUrl(int aid, int cid, {int qn = 64}) async {
+    final data = await _get('/x/player/playurl', params: {
+      'avid': aid,
+      'cid': cid,
+      'qn': qn,
+      'fnval': 0,
+      'fnver': 0,
+      'fourk': 0,
+    });
+    if (data is! Map) throw const BiliException(-1, '播放地址为空');
+    final durl = data['durl'];
+    if (durl is List && durl.isNotEmpty) {
+      final first = durl.first;
+      if (first is Map && first['url'] != null) {
+        return first['url'].toString();
+      }
+    }
+    throw const BiliException(-1, '播放地址为空');
+  }
+
   /// 视频评论。
   ///
   /// 用 /x/v2/reply（老分页接口）：实测 /x/v2/reply/main 无登录态会返回

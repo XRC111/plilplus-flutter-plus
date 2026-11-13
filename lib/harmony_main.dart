@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'harmony/api.dart';
 import 'harmony/image_cache.dart';
 import 'harmony/danmaku.dart';
+import 'harmony/player.dart';
 
 void main() => runApp(const PiliPlusHarmonyApp());
 
@@ -502,6 +503,37 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                                 child: Center(
                                     child: CircularProgressIndicator()),
                               ),
+                            // 播放入口：跳到 PlayerPage（video_player_ohos / AVPlayer）
+                            Center(
+                              child: GestureDetector(
+                                onTap: () {
+                                  final cid = d.pages.isNotEmpty
+                                      ? d.pages.first.cid
+                                      : d.aid;
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => PlayerPage(
+                                        bvid: d.bvid,
+                                        aid: d.aid,
+                                        cid: cid,
+                                        title: d.title,
+                                        cover: d.cover,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  width: 64,
+                                  height: 64,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.55),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.play_arrow,
+                                      color: Colors.white, size: 38),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
